@@ -77,6 +77,35 @@ def render():
 
     connections_table.pack(fill="both", expand=True, padx=10, pady=10)
     
+    actions_frame = tk.Frame(active_frame, bg="#0D0D0D")
+    actions_frame.pack(fill="x", padx=10, pady=10)
+    
+    def tmp():
+        pass
+    
+    
+    webcam_btn = tk.Button(
+        actions_frame,
+        text="WEBCAM",
+        command=lambda: send_ui_task("WEBCAM")
+    )
+    webcam_btn.pack(side="left", padx=5)
+
+    screenshot_btn = tk.Button(
+        actions_frame,
+        text="SCREENSHOT",
+        command=lambda: send_ui_task("SCREENSHOT")
+    )
+    screenshot_btn.pack(side="left", padx=5)
+
+    file_btn = tk.Button(
+        actions_frame,
+        text="FILE",
+        command=lambda: send_ui_task("REPOS")
+    )
+    file_btn.pack(side="left", padx=5)
+    
+    file_btn.pack(side="left", padx=5)
     def update_connections_list():
         for item in connections_table.get_children():
             connections_table.delete(item)
@@ -106,6 +135,39 @@ def render():
             console.config(state="disabled")
 
         root.after(300, update_console)
+
+
+    def get_selected_agent_id():
+        selected = connections_table.selection()
+
+        if not selected:
+            log("[-] No agent selected")
+            return None
+
+        item = connections_table.item(selected[0])
+        values = item["values"]
+
+        agent_id = values[0]
+        return agent_id
+
+    def send_ui_task(task_name):
+        agent_id = get_selected_agent_id()
+
+        if not agent_id:
+            return
+
+        log(f"[*] {task_name} for {agent_id} pending . . .")
+        if task_name == "WEBCAM":
+            log("[-] Unknown task")  #######################################<<<<<<<<<<<<<<<<<<<<<<
+        elif task_name == "SCREENSHOT":
+            log("[-] Unknown task")
+        elif task_name == "REPOS":
+            log("[-] Unknown task")
+        else:
+            log("[-] Unknown task")
+            return
+
+        log(f"[*] Queued {task_name} for {agent_id}")
 
     update_connections_list()
     update_console()
