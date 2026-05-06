@@ -120,7 +120,7 @@ def render():
     # Actions
     # =========================
     actions_frame = tk.Frame(active_frame, bg="#0D0D0D")
-    actions_frame.pack(fill="x", padx=15, pady=(0, 15))
+    actions_frame.pack(side="bottom", pady=(0, 15))
 
     def get_selected_agent_id():
         selected = connections_table.selection()
@@ -159,11 +159,13 @@ def render():
         actions_frame,
         text="WEBCAM",
         command=lambda: send_ui_task("WEBCAM"),
-        bg="#1A1A1A",
-        fg="#FFFFFF",
-        activebackground="#2A2A2A",
-        activeforeground="#FFFFFF",
+        bg="#000000",
+        fg="#FFAA00",
+        activebackground="#222222",
+        activeforeground="#FFAA00",
         relief="flat",
+        highlightthickness=0,
+        highlightbackground="#000000",
         padx=15,
         pady=6
     )
@@ -173,11 +175,13 @@ def render():
         actions_frame,
         text="SCREENSHOT",
         command=lambda: send_ui_task("SCREENSHOT"),
-        bg="#1A1A1A",
-        fg="#FFFFFF",
-        activebackground="#2A2A2A",
-        activeforeground="#FFFFFF",
+        bg="#000000",
+        fg="#FFAA00",
+        activebackground="#222222",
+        activeforeground="#FFAA00",
         relief="flat",
+        highlightthickness=0,
+        highlightbackground="#000000",
         padx=15,
         pady=6
     )
@@ -187,11 +191,13 @@ def render():
         actions_frame,
         text="FILE",
         command=lambda: send_ui_task("FILES"),
-        bg="#1A1A1A",
-        fg="#FFFFFF",
-        activebackground="#2A2A2A",
-        activeforeground="#FFFFFF",
+        bg="#000000",
+        fg="#FFAA00",
+        activebackground="#222222",
+        activeforeground="#FFAA00",
         relief="flat",
+        highlightthickness=0,
+        highlightbackground="#000000",
         padx=15,
         pady=6
     )
