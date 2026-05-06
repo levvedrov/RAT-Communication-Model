@@ -294,7 +294,7 @@ def task_check():
     endpoint = get_user(id)
 
     if endpoint == False:
-        log("[*] Verifying connection")
+        log(f"[*] Verifying connection from {request.remote_addr}")
         return jsonify({"task": "WHO"}), 400
 
     endpoint.time_last_seen = time.time()
