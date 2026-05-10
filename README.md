@@ -10,10 +10,12 @@ It demonstrates the structure of a command-and-control (C2) communication model 
 ## Architecture
 
 ```
-Client Agent  ──►  POST /info     ──►  Server (Flask)
-Client Agent  ◄──  GET  /tasks    ◄──  Server (Flask)
-Client Agent  ──►  POST /screen   ──►  Server (Flask + Tkinter UI)
-Client Agent  ──►  POST /webcam   ──►  Server (Flask + Tkinter UI)
+Client Agent  ──►  POST /info      ──►  Server (Flask)
+Client Agent  ◄──  POST /tasks     ◄──  Server (Flask)
+Client Agent  ──►  POST /screen    ──►  Server (Flask + Tkinter UI)
+Client Agent  ──►  POST /webcam    ──►  Server (Flask + Tkinter UI)
+Client Agent  ──►  POST /files     ──►  Server (Flask + Tkinter UI)
+Client Agent  ──►  POST /download  ──►  Server (Flask + Tkinter UI)
 ```
 
 The **client** polls the server on a configurable heartbeat interval, picks up queued tasks, and sends results back. The **server** exposes a Tkinter GUI for managing connected agents and issuing tasks.
@@ -61,7 +63,7 @@ RAT-Communication-Model/
 
 ```bash
 cd server
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 python app.py
 ```
 
@@ -79,7 +81,7 @@ HEARTBEAT=1
 
 ```bash
 cd client
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 python app.py
 ```
 
@@ -112,7 +114,7 @@ python app.py
 
 ### Main Window — Active Connections
 
-The main window shows all connected agents in a live-updated table. Each row displays the agent's ID, IP address, operating system, hostname, and online/offline status. Action buttons at the bottom allow issuing tasks to the selected agent.
+The main window shows all connected agents in a live-updated table. Each row displays the agent's ID, IP address, operating system, hostname, and online/offline status. Online agents are highlighted in green, offline in red. Action buttons at the bottom issue tasks to the selected agent: **WEBCAM**, **SCREEN**, and **FILE**.
 
 <img width="1375" height="896" alt="1" src="https://github.com/user-attachments/assets/18c6ddc1-f6ff-4213-a208-fbab178f34b0" />
 <img width="1638" height="907" alt="image" src="https://github.com/user-attachments/assets/2949fd47-9256-4f6b-a0c7-fa933a0a67a8" />

