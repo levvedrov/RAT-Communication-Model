@@ -150,6 +150,18 @@ Selecting a file and clicking **DOWNLOAD** queues a `DOWNLOAD:<path>` task. The 
 
 ---
 
+### File Browser Window
+
+Clicking **FILE** sends a `FILES` task to the selected agent. The agent walks its entire home directory recursively and sends a JSON file tree back to the server. The server then opens a dedicated browser window showing the tree — directories in orange, files in grey with their size displayed alongside the name.
+
+Selecting a file and clicking **DOWNLOAD** queues a `DOWNLOAD:<path>` task. The agent reads the file and streams it back; the server saves it to `downloads/` and updates the status bar in the browser window.
+
+> _Screenshot placeholder — replace with an actual screenshot of the file browser window._
+
+![File Browser](docs/screenshots/file_browser.png)
+
+---
+
 ### Console Log Panel
 
 The right-hand panel displays a real-time event log: new connections, task dispatches, received frames, and offline/online transitions.
