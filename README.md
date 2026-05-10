@@ -1,3 +1,4 @@
+
 # RAT Communication Model
 
 A Python client-server project built for **cybersecurity education**. It simulates the structure of a command-and-control (C2) system so students can study how such systems communicate, detect them, and build defenses against them.
@@ -6,18 +7,14 @@ A Python client-server project built for **cybersecurity education**. It simulat
 
 ---
 
+<img width="1375" height="896" alt="1" src="https://github.com/user-attachments/assets/6f9d4a3c-5aba-4c78-bbb6-a77433408f16" />
+
+
 ## How It Works
 
 The **server** is a desktop application (Flask + Tkinter) that manages connected agents through a GUI. The **client** is a lightweight agent that connects to the server, registers itself, then polls for tasks on a configurable interval.
 
-```
-Client  ──►  /info      register / heartbeat
-Client  ◄──  /tasks     poll for next task
-Client  ──►  /screen    stream screen frames
-Client  ──►  /webcam    stream webcam frames
-Client  ──►  /files     send home directory tree
-Client  ──►  /download  upload a requested file
-```
+
 
 Each task is issued from the server GUI, queued per agent, and picked up by the client on the next heartbeat.
 
@@ -114,9 +111,9 @@ python app.py
 
 The main window is split into two panels. The left panel shows **Active Connections** — a live-updated table with each agent's ID, IP, OS, hostname, and status. Online agents appear in green, offline in red. Clicking a row selects it with a dark highlight while keeping the status colour. Three action buttons sit at the bottom: **WEBCAM**, **SCREEN**, and **FILE**. The right panel is a read-only **Console** with a scrolling log of all server events.
 
-> _Replace with an actual screenshot._
+<img width="1320" height="895" alt="3" src="https://github.com/user-attachments/assets/97e1bd23-f372-43b6-9dae-244fe7abaeb9" />
 
-![Main Window](docs/screenshots/main_window.png)
+<img width="1320" height="895" alt="3" src="https://github.com/user-attachments/assets/0e54a55f-7dcc-47f4-897f-dbb33e1ebf79" />
 
 ---
 
@@ -124,9 +121,8 @@ The main window is split into two panels. The left panel shows **Active Connecti
 
 Clicking **SCREEN** opens a `640×400` stream window titled with the agent's hostname. The server re-queues a `SCREEN` task after every received frame, keeping the feed continuous. Closing the window stops the stream.
 
-> _Replace with an actual screenshot._
+<img width="1505" height="848" alt="image" src="https://github.com/user-attachments/assets/4f36d820-e433-405a-abe1-8bc616ac8cbe" />
 
-![Screen Stream](docs/screenshots/screen_stream.png)
 
 ---
 
@@ -134,9 +130,8 @@ Clicking **SCREEN** opens a `640×400` stream window titled with the agent's hos
 
 Clicking **WEBCAM** opens an identical stream window for the agent's camera. Both the screen and webcam windows can be open simultaneously for the same agent.
 
-> _Replace with an actual screenshot._
+<img width="1497" height="905" alt="image" src="https://github.com/user-attachments/assets/af82ad01-0ccb-426f-b124-1e253d061828" />
 
-![Webcam Stream](docs/screenshots/webcam_stream.png)
 
 ---
 
@@ -146,9 +141,8 @@ Clicking **FILE** queues a `FILES` task. The agent walks `~` recursively, builds
 
 Selecting a file and clicking **DOWNLOAD** queues a `DOWNLOAD:<path>` task. The agent reads the file in binary and POSTs it to `/download`. The server saves it to `downloads/<agent-id>_<filename>` and updates the status bar at the bottom of the browser window.
 
-> _Replace with an actual screenshot._
+<img width="1587" height="949" alt="image" src="https://github.com/user-attachments/assets/d205db9d-26da-4389-9995-649ea859ccac" />
 
-![File Browser](docs/screenshots/file_browser.png)
 
 ---
 
