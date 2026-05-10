@@ -1,3 +1,4 @@
 python-dotenv
 requests
 mss
+opencv-python
