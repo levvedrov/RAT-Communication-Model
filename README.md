@@ -1,24 +1,25 @@
 # RAT Communication Model
 
-A **controlled cybersecurity study project** developed for academic purposes.  
-It demonstrates the structure of a command-and-control (C2) communication model — including agent heartbeats, task polling, and real-time data streaming — so that students can better analyze, detect, and defend against such systems.
+A Python client-server project built for **cybersecurity education**. It simulates the structure of a command-and-control (C2) system so students can study how such systems communicate, detect them, and build defenses against them.
 
-> **This project must only be used in your own controlled lab environment. See the [Disclaimer](#disclaimer) section.**
+> This project must only be used in a controlled lab environment you own. See [Disclaimer](#disclaimer).
 
 ---
 
-## Architecture
+## How It Works
+
+The **server** is a desktop application (Flask + Tkinter) that manages connected agents through a GUI. The **client** is a lightweight agent that connects to the server, registers itself, then polls for tasks on a configurable interval.
 
 ```
-Client Agent  ──►  POST /info      ──►  Server (Flask)
-Client Agent  ◄──  POST /tasks     ◄──  Server (Flask)
-Client Agent  ──►  POST /screen    ──►  Server (Flask + Tkinter UI)
-Client Agent  ──►  POST /webcam    ──►  Server (Flask + Tkinter UI)
-Client Agent  ──►  POST /files     ──►  Server (Flask + Tkinter UI)
-Client Agent  ──►  POST /download  ──►  Server (Flask + Tkinter UI)
+Client  ──►  /info      register / heartbeat
+Client  ◄──  /tasks     poll for next task
+Client  ──►  /screen    stream screen frames
+Client  ──►  /webcam    stream webcam frames
+Client  ──►  /files     send home directory tree
+Client  ──►  /download  upload a requested file
 ```
 
-The **client** polls the server on a configurable heartbeat interval, picks up queued tasks, and sends results back. The **server** exposes a Tkinter GUI for managing connected agents and issuing tasks.
+Each task is issued from the server GUI, queued per agent, and picked up by the client on the next heartbeat.
 
 ---
 
@@ -26,14 +27,13 @@ The **client** polls the server on a configurable heartbeat interval, picks up q
 
 | Feature | Description |
 |---|---|
-| Agent tracking | Live table of connected agents with ID, IP, OS, name, and online/offline status |
-| Screen stream | Continuous screen capture streamed to the server UI in a live window |
-| Webcam stream | Continuous webcam capture streamed to the server UI in a live window |
-| File browser | Full recursive file tree of the agent's home directory, shown in a dedicated UI window |
-| File download | Select any file in the browser and download it to the server's `downloads/` folder |
-| Console log | Real-time event log panel inside the server UI |
-| Task queue | Per-agent task queue — server issues tasks, client polls and executes |
-| Heartbeat | Configurable polling interval; agents marked offline after 15 s of silence |
+| Agent tracking | Live table showing ID, IP, OS, hostname, and online/offline status for every connected agent |
+| Screen stream | Continuous screen capture — each frame triggers the next, producing a live feed in a dedicated window |
+| Webcam stream | Same streaming loop as screen, using the agent's default camera |
+| File browser | Recursive tree of the agent's home directory displayed in a collapsible Treeview window |
+| File download | Select any file in the browser and pull it to the server's `downloads/` folder |
+| Console log | Real-time event log panel built into the main window |
+| Heartbeat | Configurable poll interval; agents go offline after 15 s of silence |
 
 ---
 
@@ -42,11 +42,11 @@ The **client** polls the server on a configurable heartbeat interval, picks up q
 ```
 RAT-Communication-Model/
 ├── server/
-│   ├── app.py            # Flask API + Tkinter server UI
+│   ├── app.py            # Flask API + Tkinter UI
 │   └── requirements.txt
 ├── client/
-│   ├── app.py            # Agent — polls tasks, sends results
-│   ├── .env              # Agent configuration
+│   ├── app.py            # Agent
+│   ├── .env              # Agent config
 │   └── requirements.txt
 └── README.md
 ```
@@ -55,9 +55,7 @@ RAT-Communication-Model/
 
 ## Setup
 
-### Requirements
-
-- Python 3.10+
+**Python 3.10+ required.**
 
 ### Server
 
@@ -69,15 +67,15 @@ python app.py
 
 ### Client
 
-1. Edit `client/.env`:
+Edit `client/.env`:
 
 ```env
 URL=http://<server-ip>:5000
-AGENT_ID=<unique-agent-id>
+AGENT_ID=<unique-id>
 HEARTBEAT=1
 ```
 
-2. Run:
+Then run:
 
 ```bash
 cd client
@@ -99,130 +97,67 @@ python app.py
 
 ## Server API
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/info` | POST | Agent registration / heartbeat |
-| `/tasks` | POST | Task polling — returns next queued task |
-| `/screen` | POST | Receives one frame of the screen stream; server immediately re-queues the next capture |
-| `/webcam` | POST | Receives one frame of the webcam stream; server immediately re-queues the next capture |
-| `/files` | POST | Receives a JSON file tree of the agent's home directory |
-| `/download` | POST | Receives a file downloaded from the agent; saved to `downloads/` |
+| Endpoint | Method | Body | Description |
+|---|---|---|---|
+| `/info` | POST | JSON | Agent registration and heartbeat |
+| `/tasks` | POST | JSON | Returns the next queued task for the agent |
+| `/screen` | POST | multipart | One frame of the screen stream; server re-queues next immediately |
+| `/webcam` | POST | multipart | One frame of the webcam stream; server re-queues next immediately |
+| `/files` | POST | JSON | Full recursive file tree of the agent's home directory |
+| `/download` | POST | multipart | A file requested via the browser; saved to `downloads/` |
 
 ---
 
 ## UI Screenshots
 
-### Main Window — Active Connections
+### Main Window
 
-The main window shows all connected agents in a live-updated table. Each row displays the agent's ID, IP address, operating system, hostname, and online/offline status. Online agents are highlighted in green, offline in red. Action buttons at the bottom issue tasks to the selected agent: **WEBCAM**, **SCREEN**, and **FILE**.
+The main window is split into two panels. The left panel shows **Active Connections** — a live-updated table with each agent's ID, IP, OS, hostname, and status. Online agents appear in green, offline in red. Clicking a row selects it with a dark highlight while keeping the status colour. Three action buttons sit at the bottom: **WEBCAM**, **SCREEN**, and **FILE**. The right panel is a read-only **Console** with a scrolling log of all server events.
 
-<img width="1375" height="896" alt="1" src="https://github.com/user-attachments/assets/18c6ddc1-f6ff-4213-a208-fbab178f34b0" />
-<img width="1638" height="907" alt="image" src="https://github.com/user-attachments/assets/2949fd47-9256-4f6b-a0c7-fa933a0a67a8" />
+> _Replace with an actual screenshot._
 
-
----
-
-### Screen Stream Window
-
-Clicking **SCREEN** opens a dedicated stream window for the selected agent. The server continuously re-queues the `SCREEN` task after each frame is received, producing a live feed. Closing the window stops the stream.
-
-<img width="1645" height="935" alt="image" src="https://github.com/user-attachments/assets/4d25d97f-f646-49cc-b824-7c6970325c8f" />
-
+![Main Window](docs/screenshots/main_window.png)
 
 ---
 
-### Webcam Stream Window
+### Screen Stream
 
-Clicking **WEBCAM** opens a separate stream window showing the agent's camera feed. The stream loop works identically to the screen stream — the server re-queues `WEBCAM` after each frame. Both windows can be open simultaneously for the same agent.
+Clicking **SCREEN** opens a `640×400` stream window titled with the agent's hostname. The server re-queues a `SCREEN` task after every received frame, keeping the feed continuous. Closing the window stops the stream.
 
-<img width="1574" height="886" alt="image" src="https://github.com/user-attachments/assets/93091ded-f9f9-4a1b-99a9-85807d4c255d" />
+> _Replace with an actual screenshot._
 
+![Screen Stream](docs/screenshots/screen_stream.png)
 
 ---
 
-### File Browser Window
+### Webcam Stream
 
-Clicking **FILE** sends a `FILES` task to the selected agent. The agent walks its entire home directory recursively and sends a JSON file tree back to the server. The server then opens a dedicated browser window showing the tree — directories in orange, files in grey with their size displayed alongside the name.
+Clicking **WEBCAM** opens an identical stream window for the agent's camera. Both the screen and webcam windows can be open simultaneously for the same agent.
 
-Selecting a file and clicking **DOWNLOAD** queues a `DOWNLOAD:<path>` task. The agent reads the file and streams it back; the server saves it to `downloads/` and updates the status bar in the browser window.
+> _Replace with an actual screenshot._
 
-> _Screenshot placeholder — replace with an actual screenshot of the file browser window._
+![Webcam Stream](docs/screenshots/webcam_stream.png)
+
+---
+
+### File Browser
+
+Clicking **FILE** queues a `FILES` task. The agent walks `~` recursively, builds a JSON tree (name, path, type, size), and POSTs it to `/files`. The server opens a browser window with the full tree — directories in orange, files in grey with size shown. Directories appear before files, both sorted alphabetically. Permission-denied paths are silently skipped.
+
+Selecting a file and clicking **DOWNLOAD** queues a `DOWNLOAD:<path>` task. The agent reads the file in binary and POSTs it to `/download`. The server saves it to `downloads/<agent-id>_<filename>` and updates the status bar at the bottom of the browser window.
+
+> _Replace with an actual screenshot._
 
 ![File Browser](docs/screenshots/file_browser.png)
-
----
-
-### File Browser Window
-
-Clicking **FILE** sends a `FILES` task to the selected agent. The agent walks its entire home directory recursively and sends a JSON file tree back to the server. The server then opens a dedicated browser window showing the tree — directories in orange, files in grey with their size displayed alongside the name.
-
-Selecting a file and clicking **DOWNLOAD** queues a `DOWNLOAD:<path>` task. The agent reads the file and streams it back; the server saves it to `downloads/` and updates the status bar in the browser window.
-
-> _Screenshot placeholder — replace with an actual screenshot of the file browser window._
-
-![File Browser](docs/screenshots/file_browser.png)
-
----
-
-### Console Log Panel
-
-The right-hand panel displays a real-time event log: new connections, task dispatches, received frames, and offline/online transitions.
-
-> _Screenshot placeholder — replace with an actual screenshot of the console panel._
-
-![Console Log](docs/screenshots/console_log.png)
-
----
-
-## File System
-
-The file system feature works in two steps:
-
-### 1. Browse
-
-Clicking **FILE** in the server UI queues a `FILES` task for the selected agent. On the next heartbeat the agent:
-
-1. Walks the user's home directory (`~`) recursively via `os.scandir`
-2. Builds a nested JSON tree — each node contains `name`, `path`, `type` (`dir` or `file`), and `size` (bytes)
-3. POSTs the tree to `/files`
-
-The server receives it and opens a **File Browser** window — a scrollable treeview where directories are collapsible and files show their size. Directories are sorted before files; both are sorted alphabetically. Permission-denied paths are silently skipped.
-
-### 2. Download
-
-Inside the browser, selecting a file and clicking **DOWNLOAD** queues a `DOWNLOAD:<absolute-path>` task. On the next heartbeat the agent:
-
-1. Reads the file in binary mode
-2. POSTs it to `/download` as a multipart upload
-
-The server saves the file to `downloads/<agent-id>_<filename>` and updates the status bar at the bottom of the browser window.
-
----
-
-## Allowed Use Cases
-
-- Cybersecurity coursework and lab assignments
-- Network communication and C2 architecture study
-- Defensive security and detection engineering research
-- Log analysis practice
-- Local laboratory demonstrations
-
-## Prohibited Use Cases
-
-- Unauthorized access to any system
-- Running the client on devices you do not own or have explicit permission to test
-- Any activity that violates laws, university policy, or ethical guidelines
 
 ---
 
 ## Disclaimer
 
-This software is provided strictly as a **benign educational simulation**.  
-The author does not support or encourage any malicious use.
+This software is a **benign educational simulation**. The author does not support any malicious use.
 
-By using this project you agree that:
+**Allowed:** cybersecurity coursework, network and C2 architecture study, detection engineering, log analysis, local lab demonstrations.
 
-1. You will only run it in your own controlled environment.
-2. You will not use it against real users, public systems, or third-party devices.
-3. You will not add malicious functionality.
-4. You are solely responsible for complying with all applicable laws and institutional rules.
+**Prohibited:** unauthorized access to any system, running the client on devices you do not own, any activity that violates laws, university policy, or ethical guidelines.
+
+By using this project you agree to run it only in your own controlled environment and not add malicious functionality.
